@@ -1,19 +1,23 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, keepPreviousData, useMutation,useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import {Link, useParams} from "react-router-dom";
 import { useState } from "react";
 
 
 
-// React Query doesn't look for return error; it looks at whether your queryFn Promise resolves or rejects.
+//! React Query doesn't look for return error; it looks at whether your queryFn Promise resolves or rejects.
 async function getPost(pageNumber){
     const data = await axios.get(`https://jsonplaceholder.typicode.com/posts?_start=${pageNumber}&_limit=3`);
     return data;
 }
 
 
+
+
+
 export function Posts() {
   const [pageNumber, setPageNumber] = useState(0 );
+  const queryClient = useQueryClient(); // Access the QueryClient instance to manage queries and mutations.
 
   const { data, isError, isLoading } = useQuery({
     queryKey: ["posts",pageNumber],
@@ -21,7 +25,16 @@ export function Posts() {
     staleTime: 5 * 60 * 1000,  // 5 minutes
     placeholderData: keepPreviousData, // This option allows React Query to use the previous data as a placeholder while fetching new data, providing a smoother user experience.
   });
-f
+
+
+  //!  mutation fn to dlt post
+  const dltMutation = useMutation({
+    mutationFn:(postId) => axios.delete(`https://jsonplaceholder.typicode.com/posts/${postId}`),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries(["posts"]); // Invalidate the "posts" query after a successful mutation to refetch the data and update the UI.
+    } 
+  }) 
 
   if(isLoading) return <p>Loading ...</p>
   if(isError) return <p>Something went wrong</p>
@@ -31,6 +44,7 @@ f
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px", padding: "16px" }}>
 
       {data?.data?.map((post) => (
+        <div key={post.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
 
         <Link to={`/${post.id}`} key={post.id} style={{ textDecoration: "none", color: "inherit" }}>  
 
@@ -43,7 +57,13 @@ f
           <h2 style={{ margin: "0 0 8px" }}>{post.title}</h2>
           <p style={{ margin: 0, color: "#666" }}>{post.body}</p>
         </div>
+  
         </Link>
+
+        <button onClick={() => dltMutation.mutate(post.id)} style={{ marginTop: "8px", padding: "8px 16px", border: "1px solid #ccc", backgroundColor: "transparent", cursor: "pointer" ,borderRadius: "4px" , width: "80px" }}>Delete</button> 
+
+      </div>
+
       ))} 
 
     </div>
@@ -60,6 +80,7 @@ f
     </>
   );
 }
+
 
 
 
